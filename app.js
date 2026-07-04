@@ -4,12 +4,30 @@ const cors = require('cors');
 const router = require('./routes');
 const logger = require('./utils/logger');
 const pool = require('./db');
+const initDB = require('./scripts/init-db');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+// Initialize database tables on startup
+(async () => {
+    try {
+        console.log('Initializing database tables...');
+        await initDB();
+        console.log('Database tables initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize database tables:', error.message);
+        process.exit(1);
+    }
+})();
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:8000',
+    origin: [
+        process.env.FRONTEND_URL,
+        'https://resume-screener-frontend-beta.vercel.app',
+        'http://localhost:3000',
+        'http://localhost:8000'
+    ],
     credentials: true,
 }));
 
@@ -41,8 +59,6 @@ app.get('/api/health/db', async (req, res) => {
 
 // API routes
 app.use('/api', router);
-// Update your cors configuration in app.js 
-app.use(cors({ origin: [ process.env.FRONTEND_URL, 'https://resume-screener-frontend-beta.vercel.app', 'http://localhost:3000', 'http://localhost:8000' ], credentials: true, }));
 
 // Global error handler
 app.use((err, req, res, next) => {

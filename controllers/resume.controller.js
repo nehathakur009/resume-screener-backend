@@ -1,6 +1,6 @@
 const resumeDAO = require('../dao/resume.dao');
-const { parsePDF }     = require('../utils/pdfParser');
-const { parseResume }  = require('../utils/resumeParser');
+const { parseDocument } = require('../utils/docParser');
+const { parseResume }   = require('../utils/resumeParser');
 const { detectAllFlags } = require('../utils/flagDetector');
 const logger = require('../utils/logger');
 
@@ -8,9 +8,17 @@ const uploadResume = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const rawText = await parsePDF(req.file.buffer);
+    let rawText;
+    try {
+      rawText = await parseDocument(req.file.buffer, req.file.originalname);
+    } catch (parseErr) {
+      return res.status(422).json({ error: `Could not read file: ${parseErr.message}` });
+    }
+
     if (!rawText || rawText.trim().length < 50) {
-      return res.status(422).json({ error: 'Could not extract meaningful text from this PDF — it may be scanned/image-based' });
+      return res.status(422).json({
+        error: 'Could not extract meaningful text — the file may be scanned, image-based, or empty',
+      });
     }
 
     const profile       = parseResume(rawText);

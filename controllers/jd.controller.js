@@ -3,19 +3,13 @@ const logger = require('../utils/logger');
 
 const createJD = async (req, res) => {
   try {
+    // title and description are already sanitized + validated by validateJDBody middleware
     const { title, description } = req.body;
-    if (!description || description.trim().length < 50) {
-      return res.status(400).json({ error: 'Job description must be at least 50 characters' });
-    }
-    const jd = await jdDAO.createJD({
-      title: title?.trim() || 'Untitled Position',
-      description: description.trim(),
-      criteria: [],
-    });
+    const jd = await jdDAO.createJD({ title, description, criteria: [] });
     res.status(201).json({ data: jd });
   } catch (err) {
     logger.error('Create JD failed', { error: err.message });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to save job description' });
   }
 };
 

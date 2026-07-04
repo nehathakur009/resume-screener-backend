@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\PARMAR G\\Desktop\\Resume-Screener\\backend\\logs\\.79b3bcd8dcb279b958a06997492e729481047585-audit.json",
+    "files": [
+        {
+            "date": 1783091172779,
+            "name": "C:\\Users\\PARMAR G\\Desktop\\Resume-Screener\\backend\\logs\\application-2026-07-03.log",
+            "hash": "1a7a541d5a81a0a463177c9a67fd7dcafe4b013424a19b60b72d75259813c6f6"
+        }
+    ],
+    "hashType": "sha256"
+}

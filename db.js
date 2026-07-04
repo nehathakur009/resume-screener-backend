@@ -1,0 +1,30 @@
+// require('dotenv').config();
+// const { Pool } = require('pg');
+
+// const pool = new Pool({
+//   user: process.env.PG_USER,
+//   host: process.env.PG_HOST,
+//   database: process.env.PG_DATABASE,
+//   password: process.env.PG_PASSWORD,
+//   port: parseInt(process.env.PG_PORT) || 5432,
+// });
+
+// pool.on('error', (err) => {
+//   console.error('Unexpected pg pool error', err);
+// });
+
+require('dotenv').config();
+const { Pool } = require('pg');
+
+// Use DATABASE_URL if it's set, otherwise use individual connection parameters
+const connectionString = process.env.DATABASE_URL;
+
+const pool = new Pool({
+    connectionString
+});
+
+pool.on('error', (err) => {
+    console.error('Unexpected pg pool error', err);
+});
+
+module.exports = pool;

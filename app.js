@@ -41,6 +41,8 @@ app.get('/api/health/db', async (req, res) => {
 
 // API routes
 app.use('/api', router);
+// Update your cors configuration in app.js 
+app.use(cors({ origin: [ process.env.FRONTEND_URL, 'https://resume-screener-frontend-beta.vercel.app', 'http://localhost:3000', 'http://localhost:8000' ], credentials: true, }));
 
 // Global error handler
 app.use((err, req, res, next) => {

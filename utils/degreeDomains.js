@@ -1,0 +1,52 @@
+{
+  "technical_fields": [
+    "computer science",
+    "informatics",
+    "software engineering",
+    "electrical engineering",
+    "mechanical engineering",
+    "mathematics",
+    "statistics",
+    "physics",
+    "data science",
+    "business analytics",
+    "information systems",
+    "cybersecurity",
+    "artificial intelligence",
+    "machine learning",
+    "computer engineering",
+    "network engineering",
+    "software development",
+    "information technology",
+    "systems engineering"
+  ],
+  "business_fields": [
+    "business",
+    "mba",
+    "finance",
+    "marketing",
+    "economics",
+    "management",
+    "operations",
+    "supply chain",
+    "accounting",
+    "administration",
+    "public policy",
+    "law",
+    "communications"
+  ],
+  "other_fields": [
+    "art",
+    "history",
+    "literature",
+    "philosophy",
+    "psychology",
+    "sociology",
+    "education",
+    "biology",
+    "chemistry",
+    "english",
+    "journalism",
+    "political science"
+  ]
+}

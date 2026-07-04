@@ -146,23 +146,87 @@ function extractPhone(text) {
   return m ? m[0].trim() : null;
 }
 
-function extractName(lines) {
-  for (const line of lines.slice(0, 6)) {
-    const t = line.trim();
-    if (!t || /@/.test(t) || /^\d/.test(t)) continue;
-    if (/^(summary|objective|profile|experience|education|skills)/i.test(t)) continue;
-    // 2–4 capitalised words
-    if (/^[A-Z][a-z'-]+(\s+[A-Z][a-z'-]+){1,3}$/.test(t)) return t;
-    // All caps name e.g. "JOHN DOE"
-    if (/^[A-Z'-]+(\s+[A-Z'-]+){1,3}$/.test(t) && t.length < 60) {
-      return t.split(' ').map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
-    }
-  }
-  return null;
-}
+// function extractName(lines) {
+//   const RESUME_HEADERS = [
+//         'curriculum vitae', 'cv', 'resume', 'personal profile', 'professional profile',
+//         'summary', 'objective', 'profile', 'experience', 'employment', 'education',
+//         'skills', 'qualifications', 'certifications', 'training', 'contact', 'contact information'
+//     ];
+
+//   for (const line of lines.slice(0, 10)) {
+//     const t = line.trim();
+//     // if (!t || /@/.test(t) || /^\d/.test(t)) continue;
+//     // if (/^(summary|objective|profile|experience|education|skills|contact)/i.test(t)) continue;
+//     // 2–4 capitalised words
+
+//     if (/^[A-Z][a-z'-]+(\s+[A-Z][a-z'-]+){0,3}$/.test(t)) return t;
+//     // All caps name e.g. "JOHN DOE"
+//     if (/^[A-Z'-]+(\s+[A-Z'-]+){0,3}$/.test(t) && t.length < 60) {
+//       return t.split(' ').map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+//     }
+
+//      // Pattern 3: Common name patterns with middle name/initial
+//         // John D. Smith, Jane A Smith, Robert J. Smith
+//         if (/^[A-Z][a-z'-]+\s+[A-Z]\.?\s+[A-Z][a-z'-]+$/.test(t)) return t;
+
+//         // Pattern 4: Simple first name last name without capitalization rules
+//         if (/^[A-Za-z'-]+\s+[A-Za-z'-]+$/.test(t) && t.length < 60 && t.length >= 5) {
+//             // Check if it looks like a name (at least one capital letter after first letter)
+//             if (/[A-Z]/.test(t.slice(1))) {
+//                 return t;
+//             }       
+//     }
+//   }
+//   return null;
+// }
 
 // ─── Title / company heuristics ───────────────────────────────────────────────
 
+function extractName(lines) {
+    const RESUME_HEADERS = [
+        'curriculum vitae', 'cv', 'resume', 'personal profile', 'professional profile',
+        'summary', 'objective', 'profile', 'experience', 'employment', 'education',
+        'skills', 'qualifications', 'certifications', 'training', 'contact', 'contact information'
+    ];
+
+    // Pre-compile regex for headers to match exact phrases or lines starting with "Header:"
+    // This prevents the "McVey" bug where .includes('cv') would accidentally skip a real name
+    const headerRegex = new RegExp(`^(${RESUME_HEADERS.join('|')})(:|\\s*$)`, 'i');
+
+    for (const line of lines.slice(0, 10)) {
+        const t = line.trim();
+        if (!t) continue;
+
+        // Skip lines that contain emails, start with digits, or look like URLs
+        if (/@/.test(t) || /^\d/.test(t) || /^https?:\/\//i.test(t)) continue;
+
+        // Skip exact headers or headers with colons
+        if (headerRegex.test(t)) continue;
+
+        // Pattern 1: Standard Names (1-4 words)
+        // Fixed to allow internal capitals (McDonald, O'Connor) and initials (John D. Smith)
+        if (/^[A-Z][a-zA-Z'-]*\.?(?:\s+[A-Z][a-zA-Z'-]*\.?){0,3}$/.test(t)) {
+            return t;
+        }
+
+        // Pattern 2: All caps name (e.g., JOHN SMITH) - Converts to Title Case
+        if (/^[A-Z'-]+(?:\s+[A-Z'-]+){0,3}$/.test(t) && t.length < 60) {
+            return t.split(/\s+/)
+                    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+                    .join(' ');
+        }
+
+        // Pattern 3: Fallback for names lacking proper capitalization (e.g., "john smith", "John smith")
+        // Ensures it looks like a 2-4 word string.
+        if (/^[A-Za-z'-]+(?:\s+[A-Za-z'-]+){1,3}$/.test(t) && t.length < 60 && t.length >= 5) {
+            // Converts to proper Title Case just to be safe
+            return t.split(/\s+/)
+                    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                    .join(' ');
+        }
+    }
+    return null;
+}
 const TITLE_KEYWORDS = /\b(engineer|developer|manager|analyst|designer|architect|consultant|director|lead|senior|junior|intern|specialist|coordinator|officer|administrator|executive|president|head|vp|cto|cfo|ceo|researcher|scientist|associate|assistant|staff|principal|fellow|devops|sre|qa|tester|scrum|product)\b/i;
 
 function isTitleLike(text) {

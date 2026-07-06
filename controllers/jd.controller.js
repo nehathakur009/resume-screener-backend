@@ -34,4 +34,45 @@ const getAllJDs = async (req, res) => {
   }
 };
 
-module.exports = { createJD, getJD, getAllJDs };
+const updateJD = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description } = req.body;
+
+    // Check if JD exists
+    const existingJD = await jdDAO.getJD(id);
+    if (!existingJD) {
+      return res.status(404).json({ error: 'Job description not found' });
+    }
+
+    const updatedJD = await jdDAO.updateJD(id, { title, description });
+    res.json({ data: updatedJD });
+  } catch (err) {
+    logger.error('Update JD failed', { error: err.message });
+    res.status(500).json({ error: 'Failed to update job description' });
+  }
+};
+
+const deleteJD = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if JD exists
+    const existingJD = await jdDAO.getJD(id);
+    if (!existingJD) {
+      return res.status(404).json({ error: 'Job description not found' });
+    }
+
+    const result = await jdDAO.deleteJD(id);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Job description not found' });
+    }
+
+    res.status(204).send();
+  } catch (err) {
+    logger.error('Delete JD failed', { error: err.message });
+    res.status(500).json({ error: 'Failed to delete job description' });
+  }
+};
+
+module.exports = { createJD, getJD, getAllJDs, updateJD, deleteJD };

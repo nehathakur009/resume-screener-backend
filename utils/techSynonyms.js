@@ -1,4 +1,4 @@
-{
+module.exports = {
   "canonical_aws": ["aws", "amazon web services", "amazon cloud", "amazon aws", "amazon"],
   "canonical_gcp": ["gcp", "google cloud platform", "google cloud", "google cloud services", "google clouds"],
   "canonical_azure": ["azure", "microsoft azure", "az"],
@@ -29,7 +29,7 @@
   "canonical_databricks": ["databricks", "azure databricks"],
   "canonical_tensorflow": ["tensorflow", "tf", "tf2", "tensorflow 2"],
   "canonical_pytorch": ["pytorch", "py torch", "pytorch lightning"],
-  "canonical_sklearn": ["sklearn", "scikit-learn", "scikit learn", "sk-learn"],
+  "canonical_sklearn": ["sklearn", "scikit-learn", "skik learn", "sk-learn"],
   "canonical_spark": ["spark", "apache spark", "apachehadoop spark"],
   "canonical_hadoop": ["hadoop", "hadoop ecosystem", "apache hadoop"],
   "canonical_elasticsearch": ["elasticsearch", "elastic search", "es"],
@@ -57,4 +57,4 @@
   "canonical_vue": ["vue", "vuejs", "vue.js"],
   "canonical_angular": ["angular", "angularjs", "angular 2", "angular 4", "angular 6", "angular 12", "angular 14", "angular 16"],
   "canonical_svelte": ["svelte", "sveltekit"]
-}
+};

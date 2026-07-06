@@ -23,4 +23,19 @@ async function getAllJDs() {
   return rows;
 }
 
-module.exports = { createJD, getJD, getAllJDs };
+async function updateJD(jd_id, { title, description }) {
+  const { rows } = await pool.query(
+    `UPDATE job_descriptions SET title = $1, description = $2 WHERE id = $3 RETURNING *`,
+    [title, description, jd_id],
+  );
+  return rows[0];
+}
+
+async function deleteJD(jd_id) {
+  return await pool.query(
+    `DELETE FROM job_descriptions WHERE id = $1`,
+    [jd_id],
+  );
+}
+
+module.exports = { createJD, getJD, getAllJDs, updateJD, deleteJD };

@@ -1,12 +1,12 @@
-/**
- * Rule-based resume parser.
- *
- * Strategy:
- *   1. Normalise raw text from pdf-parse.
- *   2. Split into named sections using common header patterns.
- *   3. Within each section use date-range anchoring + heuristics to extract
- *      roles, education entries, and skills.
- *   4. Fall back to full-document scanning when sections are missing.
+/** 
+ * Rule-based resume parser. 
+ * 
+ * Strategy: 
+ * 1. Normalise raw text from pdf-parse. 
+ * 2. Split into named sections using common header patterns. 
+ * 3. Within each section use date-range anchoring + heuristics to extract 
+ *    roles, education entries, and skills. 
+ * 4. Fall back to full-document scanning when sections are missing. 
  */
 
 // ─── Date helpers ────────────────────────────────────────────────────────────
@@ -96,21 +96,54 @@ const SECTION_KEYWORDS = {
 };
 
 function matchSectionHeader(line) {
-  const clean = line.trim().toLowerCase().replace(/[:\-_=*#+|]+/g, '').trim();
-  if (clean.length < 3 || clean.length > 50) return null;
+  const originalLine = line;
+  const clean = line.trim().replace(/[:\-_=*#+|]+/g, '').trim();
+  if (clean.length < 2 || clean.length > 100) return null;
+
+  // Convert to lowercase for comparison but preserve original
+  const cleanLower = clean.toLowerCase();
 
   for (const [section, keywords] of Object.entries(SECTION_KEYWORDS)) {
-    if (keywords.some((kw) => clean === kw || clean.startsWith(kw + ' '))) {
+    // Match exact section name (case insensitive)
+    if (keywords.some((kw) => cleanLower === kw || cleanLower.startsWith(kw + ' '))) {
+      return section;
+    }
+
+    // Match section name with punctuation at end (e.g. "EXPERIENCE:")
+    if (keywords.some((kw) => cleanLower.startsWith(kw) && (cleanLower.endsWith(':') || cleanLower.endsWith(';')))) {
+      return section;
+    }
+
+    // Match section name with any punctuation (e.g. "EXPERIENCE -")
+    if (keywords.some((kw) => cleanLower.startsWith(kw))) {
+      // Check if it's followed by common separators
+      const rest = cleanLower.substring(kw.length).trim();
+      if (rest === '' || [':', '-', '—', '–', '|', '·', '•', ';'].includes(rest[0])) {
+        return section;
+      }
+    }
+  }
+
+  // Enhanced ALL-CAPS detection
+  if (/^[A-Z\s&\-\/.,;:]+$/i.test(originalLine.trim()) && originalLine.trim().length >= 2) {
+    const norm = originalLine.trim().toLowerCase();
+
+    // Look for keywords anywhere in the all-caps line
+    for (const [section, keywords] of Object.entries(SECTION_KEYWORDS)) {
+      if (keywords.some((kw) => norm.includes(kw))) {
+        return section;
+      }
+    }
+  }
+
+  // Look for single words that are section names even if not fully capitalized
+  const words = cleanLower.split(' ');
+  for (const [section, keywords] of Object.entries(SECTION_KEYWORDS)) {
+    if (keywords.some((kw) => words.includes(kw))) {
       return section;
     }
   }
-  // All-caps header e.g. "WORK EXPERIENCE"
-  if (/^[A-Z\s&\-/]+$/.test(line.trim()) && line.trim().length >= 4) {
-    const norm = line.trim().toLowerCase();
-    for (const [section, keywords] of Object.entries(SECTION_KEYWORDS)) {
-      if (keywords.some((kw) => norm.includes(kw))) return section;
-    }
-  }
+
   return null;
 }
 
@@ -146,87 +179,52 @@ function extractPhone(text) {
   return m ? m[0].trim() : null;
 }
 
-// function extractName(lines) {
-//   const RESUME_HEADERS = [
-//         'curriculum vitae', 'cv', 'resume', 'personal profile', 'professional profile',
-//         'summary', 'objective', 'profile', 'experience', 'employment', 'education',
-//         'skills', 'qualifications', 'certifications', 'training', 'contact', 'contact information'
-//     ];
-
-//   for (const line of lines.slice(0, 10)) {
-//     const t = line.trim();
-//     // if (!t || /@/.test(t) || /^\d/.test(t)) continue;
-//     // if (/^(summary|objective|profile|experience|education|skills|contact)/i.test(t)) continue;
-//     // 2–4 capitalised words
-
-//     if (/^[A-Z][a-z'-]+(\s+[A-Z][a-z'-]+){0,3}$/.test(t)) return t;
-//     // All caps name e.g. "JOHN DOE"
-//     if (/^[A-Z'-]+(\s+[A-Z'-]+){0,3}$/.test(t) && t.length < 60) {
-//       return t.split(' ').map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
-//     }
-
-//      // Pattern 3: Common name patterns with middle name/initial
-//         // John D. Smith, Jane A Smith, Robert J. Smith
-//         if (/^[A-Z][a-z'-]+\s+[A-Z]\.?\s+[A-Z][a-z'-]+$/.test(t)) return t;
-
-//         // Pattern 4: Simple first name last name without capitalization rules
-//         if (/^[A-Za-z'-]+\s+[A-Za-z'-]+$/.test(t) && t.length < 60 && t.length >= 5) {
-//             // Check if it looks like a name (at least one capital letter after first letter)
-//             if (/[A-Z]/.test(t.slice(1))) {
-//                 return t;
-//             }       
-//     }
-//   }
-//   return null;
-// }
-
-// ─── Title / company heuristics ───────────────────────────────────────────────
-
 function extractName(lines) {
-    const RESUME_HEADERS = [
-        'curriculum vitae', 'cv', 'resume', 'personal profile', 'professional profile',
-        'summary', 'objective', 'profile', 'experience', 'employment', 'education',
-        'skills', 'qualifications', 'certifications', 'training', 'contact', 'contact information'
-    ];
+  const RESUME_HEADERS = [
+    'curriculum vitae', 'cv', 'resume', 'personal profile', 'professional profile',
+    'summary', 'objective', 'profile', 'experience', 'employment', 'education',
+    'skills', 'qualifications', 'certifications', 'training', 'contact', 'contact information'
+  ];
 
-    // Pre-compile regex for headers to match exact phrases or lines starting with "Header:"
-    // This prevents the "McVey" bug where .includes('cv') would accidentally skip a real name
-    const headerRegex = new RegExp(`^(${RESUME_HEADERS.join('|')})(:|\\s*$)`, 'i');
+  // Pre-compile regex for headers to match exact phrases or lines starting with "Header:"
+  // This prevents the "McVey" bug where .includes('cv') would accidentally skip a real name
+  const headerRegex = new RegExp(`^(${RESUME_HEADERS.join('|')})(:|\\s*$)`, 'i');
 
-    for (const line of lines.slice(0, 10)) {
-        const t = line.trim();
-        if (!t) continue;
+  for (const line of lines.slice(0, 10)) {
+    const t = line.trim();
+    if (!t) continue;
 
-        // Skip lines that contain emails, start with digits, or look like URLs
-        if (/@/.test(t) || /^\d/.test(t) || /^https?:\/\//i.test(t)) continue;
+    // Skip lines that contain emails, start with digits, or look like URLs
+    if (/@/.test(t) || /^\d/.test(t) || /^https?:\/\//i.test(t)) continue;
 
-        // Skip exact headers or headers with colons
-        if (headerRegex.test(t)) continue;
+    // Skip exact headers or headers with colons
+    if (headerRegex.test(t)) continue;
 
-        // Pattern 1: Standard Names (1-4 words)
-        // Fixed to allow internal capitals (McDonald, O'Connor) and initials (John D. Smith)
-        if (/^[A-Z][a-zA-Z'-]*\.?(?:\s+[A-Z][a-zA-Z'-]*\.?){0,3}$/.test(t)) {
-            return t;
-        }
-
-        // Pattern 2: All caps name (e.g., JOHN SMITH) - Converts to Title Case
-        if (/^[A-Z'-]+(?:\s+[A-Z'-]+){0,3}$/.test(t) && t.length < 60) {
-            return t.split(/\s+/)
-                    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
-                    .join(' ');
-        }
-
-        // Pattern 3: Fallback for names lacking proper capitalization (e.g., "john smith", "John smith")
-        // Ensures it looks like a 2-4 word string.
-        if (/^[A-Za-z'-]+(?:\s+[A-Za-z'-]+){1,3}$/.test(t) && t.length < 60 && t.length >= 5) {
-            // Converts to proper Title Case just to be safe
-            return t.split(/\s+/)
-                    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-                    .join(' ');
-        }
+    // Pattern 1: Standard Names (1-4 words)
+    // Fixed to allow internal capitals (McDonald, O'Connor) and initials (John D. Smith)
+    if (/^[A-Z][a-zA-Z'-]*\.?(?:\s+[A-Z][a-zA-Z'-]*\.?){0,3}$/.test(t)) {
+      return t;
     }
-    return null;
+
+    // Pattern 2: All caps name (e.g., JOHN SMITH) - Converts to Title Case
+    if (/^[A-Z'-]+(?:\s+[A-Z'-]+){0,3}$/.test(t) && t.length < 60) {
+      return t.split(/\s+/)
+        .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+        .join(' ');
+    }
+
+    // Pattern 3: Fallback for names lacking proper capitalization (e.g., "john smith", "John smith")
+    // Ensures it looks like a 2-4 word string. 
+    if (/^[A-Za-z'-]+(?:\s+[A-Za-z'-]+){1,3}$/.test(t) && t.length < 60 && t.length >= 5) {
+      // Converts to proper Title Case just to be safe
+      return t.split(/\s+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+    }
+  }
+  return null;
 }
+
 const TITLE_KEYWORDS = /\b(engineer|developer|manager|analyst|designer|architect|consultant|director|lead|senior|junior|intern|specialist|coordinator|officer|administrator|executive|president|head|vp|cto|cfo|ceo|researcher|scientist|associate|assistant|staff|principal|fellow|devops|sre|qa|tester|scrum|product)\b/i;
 
 function isTitleLike(text) {
@@ -281,7 +279,7 @@ function parseExperienceSection(text) {
 
       const pipeM = line.match(/^(.+?)\s*\|\s*(.+)$/);
       const atM = line.match(/^(.+?)\s+(?:at|@)\s+(.+)$/i);
-      const dashM = line.match(/^(.+?)\s*[-–—]\s*(.+)$/) ;
+      const dashM = line.match(/^(.+?)\s*[-–—]\s*(.+)$/);
 
       if (pipeM && !title) { title = pipeM[1].trim(); company = pipeM[2].trim(); break; }
       if (atM && !title) { title = atM[1].trim(); company = atM[2].trim(); break; }
@@ -334,26 +332,26 @@ function parseExperienceFallback(text) {
     let title = null;
     let company = null;
 
-    // Patterns: "Title | Company"  /  "Title at Company"  /  "Title – Company"
+    // Patterns: "Title | Company" / "Title at Company" / "Title – Company"
     const pipeM = line.match(/^(.+?)\s*\|\s*(.+)$/);
-    const atM   = line.match(/^(.+?)\s+(?:at|@)\s+(.+)$/i);
+    const atM = line.match(/^(.+?)\s+(?:at|@)\s+(.+)$/i);
     const dashM = line.match(/^(.+?)\s*[-–—]\s*(.+)$/);
 
-    if (pipeM && isTitleLike(pipeM[1].trim())) {
-      title = pipeM[1].trim(); company = pipeM[2].trim();
-    } else if (atM && isTitleLike(atM[1].trim())) {
-      title = atM[1].trim(); company = atM[2].trim();
-    } else if (isTitleLike(line)) {
-      title = line;
+    if (pipeM && isTitleLike(pipeM[1].trim())) { 
+      title = pipeM[1].trim(); company = pipeM[2].trim(); 
+    } else if (atM && isTitleLike(atM[1].trim())) { 
+      title = atM[1].trim(); company = atM[2].trim(); 
+    } else if (isTitleLike(line)) { 
+      title = line; 
       // Look ahead for company name
       for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
         const next = lines[j];
-        if (next && !isTitleLike(next) && isCompanyLike(next)) {
-          company = next; break;
+        if (next && !isTitleLike(next) && isCompanyLike(next)) { 
+          company = next; break; 
         }
       }
-    } else if (dashM && isTitleLike(dashM[1].trim()) && !/\d{4}/.test(line)) {
-      title = dashM[1].trim(); company = dashM[2].trim();
+    } else if (dashM && isTitleLike(dashM[1].trim()) && !/\d{4}/.test(line)) { 
+      title = dashM[1].trim(); company = dashM[2].trim(); 
     }
 
     if (!title || seen.has(title.toLowerCase())) continue;
@@ -371,7 +369,7 @@ function parseExperienceFallback(text) {
       title,
       company: company || 'Unknown Company',
       start_date: null,
-      end_date:   null,
+      end_date: null,
       is_current: false,
       description: descLines.join(' ').replace(/\s+/g, ' ').slice(0, 500).trim(),
     });
@@ -410,8 +408,8 @@ function parseEducationSection(text) {
       }
       if (!institution) {
         for (const cl of context) {
-          if (/^([A-Z][a-z'-]+\s+){1,4}[A-Z][a-z'-]+$/.test(cl) && cl !== lines[i]) {
-            institution = cl; break;
+          if (/^([A-Z][a-z'-]+\s+){1,4}[A-Z][a-z'-]+$/.test(cl) && cl !== lines[i]) { 
+            institution = cl; break; 
           }
         }
       }
@@ -468,7 +466,7 @@ function cleanSkillLine(line) {
 
 function parseSkillsSection(text) {
   if (!text || text.trim().length < 2) return [];
-
+  
   // First split by newline so we can handle each line's sub-category prefix
   const lines = text.split('\n');
   const rawItems = [];
@@ -511,16 +509,16 @@ function calculateTotalExperience(roles) {
     .filter((r) => r.start_date)
     .map((r) => {
       const start = new Date(r.start_date + '-01').getTime();
-      const end =
+      const end = 
         r.is_current || r.end_date === 'present'
-          ? Date.now()
-          : r.end_date
-          ? new Date(r.end_date + '-01').getTime()
-          : null;
+        ? Date.now()
+        : r.end_date
+        ? new Date(r.end_date + '-01').getTime()
+        : null;
       return end && end > start ? { start, end } : null;
     })
     .filter(Boolean)
-    .sort((a, b) => a.start - b.start);
+    .sort((a, b) => a.start - b.start); // sort by START
 
   if (!intervals.length) return null;
 

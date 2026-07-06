@@ -1,8 +1,8 @@
 const scoringDAO = require('../dao/scoring.dao');
-const resumeDAO  = require('../dao/resume.dao');
-const jdDAO      = require('../dao/jd.dao');
+const resumeDAO = require('../dao/resume.dao');
+const jdDAO = require('../dao/jd.dao');
 const { scoreCandidate } = require('../utils/scorer');
-const { parseJD }        = require('../utils/jdParser');
+const { parseJD } = require('../utils/jdParser');
 const { detectAllFlags } = require('../utils/flagDetector');
 const logger = require('../utils/logger');
 
@@ -35,19 +35,19 @@ const scoreResumes = async (req, res) => {
       resumeList.map(async (resume) => {
         try {
           const profile = {
-            name:                   resume.name,
-            roles:                  resume.roles                  || [],
-            education:              resume.education               || [],
-            skills:                 resume.skills                  || [],
-            certifications:         resume.certifications          || [],
-            total_experience_years: resume.total_experience_years  || null,
-            summary:                resume.summary                 || null,
+            name: resume.name,
+            roles: resume.roles || [],
+            education: resume.education || [],
+            skills: resume.skills || [],
+            certifications: resume.certifications || [],
+            total_experience_years: resume.total_experience_years || null,
+            summary: resume.summary || null,
           };
 
           // Deterministic scoring — fully reproducible, no network calls
-          const result    = scoreCandidate(profile, jd.description, jdParsed);
+          const result = scoreCandidate(profile, jd.description, jdParsed);
           // Re-run flag detection with latest logic (fixes bugs from upload-time computation)
-          const freshFlags  = detectAllFlags(profile);
+          const freshFlags = detectAllFlags(profile);
           // Merge with any stored upload-time flags (same-type fresh flags win)
           const mergedFlags = mergeFlags(freshFlags, resume.structural_flags || []);
 
@@ -55,12 +55,12 @@ const scoreResumes = async (req, res) => {
           await resumeDAO.updateStructuralFlags(resume.id, mergedFlags);
 
           await scoringDAO.saveScoringRecord({
-            resume_id:           resume.id,
+            resume_id: resume.id,
             jd_id,
-            total_score:         result.total_score,
+            total_score: result.total_score,
             criterion_breakdown: result.criterion_breakdown,
-            flags:               mergedFlags,
-            overall_rationale:   result.overall_rationale,
+            flags: mergedFlags,
+            overall_rationale: result.overall_rationale,
           });
 
           return { resume_id: resume.id, success: true };
@@ -76,9 +76,9 @@ const scoreResumes = async (req, res) => {
 
     res.json({
       jd_id,
-      jd_parsed: jdParsed,          // expose what the JD parser extracted (transparency)
+      jd_parsed: jdParsed, // expose what the JD parser extracted (transparency)
       total_scored: outcomes.filter((o) => o.success).length,
-      failed:       outcomes.filter((o) => !o.success).length,
+      failed: outcomes.filter((o) => !o.success).length,
       data: ranked,
     });
   } catch (err) {
@@ -107,4 +107,33 @@ const getAllResults = async (req, res) => {
   }
 };
 
-module.exports = { scoreResumes, getResults, getAllResults };
+const getAverageScoreTrend = async (req, res) => {
+  try {
+    // Get daily average scores for the last 30 days
+    const { days } = req.query;
+    const period = parseInt(days) || 30;
+
+    const { rows } = await pool.query(
+      `SELECT
+        DATE_TRUNC('day', scored_at) as date,
+        AVG(total_score) as avg_score,
+        COUNT(*) as count
+      FROM scoring_records
+      WHERE scored_at >= NOW() - INTERVAL '${period} days'
+      GROUP BY DATE_TRUNC('day', scored_at)
+      ORDER BY date ASC`);
+
+    const trendData = rows.map(row => ({
+      date: row.date,
+      avg_score: parseFloat(row.avg_score.toFixed(1)),
+      count: parseInt(row.count)
+    }));
+
+    res.json({ data: trendData, period });
+  } catch (err) {
+    logger.error('Get average score trend failed', { error: err.message });
+    res.status(500).json({ error: err.message });
+  }
+};
+
+module.exports = { scoreResumes, getResults, getAllResults, getAverageScoreTrend };

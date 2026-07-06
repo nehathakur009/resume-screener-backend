@@ -1,4 +1,4 @@
-{
+module.exports = {
   "technical_fields": [
     "computer science",
     "informatics",
@@ -49,4 +49,4 @@
     "journalism",
     "political science"
   ]
-}
+};
